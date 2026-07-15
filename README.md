@@ -106,7 +106,7 @@ frontend-doctor/
 
 ## Contributing
 
-Issues and PRs welcome — especially real-world failure cases the checklists miss.
+Issues and PRs welcome — especially real-world failure cases the checklists miss. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
