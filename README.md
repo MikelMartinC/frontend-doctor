@@ -4,6 +4,8 @@ A comprehensive **frontend skill for Claude Code**: it turns Claude into a senio
 
 Framework-agnostic, with specific guidance for React, Vue and Tailwind CSS.
 
+**🌐 Demo site:** [mikelmartinc.github.io/frontend-doctor](https://mikelmartinc.github.io/frontend-doctor/) — built with the skill's own prescription: semantic HTML, keyboard-first, AA contrast, light/dark theme, `prefers-reduced-motion` aware, fully responsive, zero dependencies.
+
 ## Install
 
 ```bash
