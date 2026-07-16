@@ -1,6 +1,6 @@
 # 🩺 frontend-doctor
 
-A comprehensive **frontend skill for Claude Code**: it turns Claude into a senior frontend engineer with a strict quality bar. One skill, five modes — component building, visual design review, accessibility auditing (WCAG 2.2 AA), responsive layout debugging, and performance optimization (Core Web Vitals).
+A comprehensive **frontend skill for Claude Code — also compatible with opencode and OpenAI Codex CLI**: it turns your coding agent into a senior frontend engineer with a strict quality bar. One skill, five modes — component building, visual design review, accessibility auditing (WCAG 2.2 AA), responsive layout debugging, and performance optimization (Core Web Vitals).
 
 Framework-agnostic, with specific guidance for React, Vue and Tailwind CSS.
 
@@ -23,6 +23,22 @@ git clone https://github.com/MikelMartinC/frontend-doctor ~/.claude/skills/front
 ```
 
 Claude Code picks it up automatically — no configuration needed. It activates whenever you ask for frontend work, and you can invoke it explicitly with `/frontend-doctor`.
+
+### Also works with opencode and Codex
+
+This skill follows the standard `SKILL.md` format, so it works unchanged in other agents:
+
+- **[opencode](https://opencode.ai/docs/skills/)** reads `.claude/skills/` and `~/.claude/skills/` directly — the install above already works. Native locations are also supported:
+
+  ```bash
+  git clone https://github.com/MikelMartinC/frontend-doctor ~/.config/opencode/skills/frontend-doctor
+  ```
+
+- **[OpenAI Codex CLI](https://developers.openai.com/codex/skills)** loads skills from `~/.codex/skills/` (personal) or `.codex/skills/` (project):
+
+  ```bash
+  git clone https://github.com/MikelMartinC/frontend-doctor ~/.codex/skills/frontend-doctor
+  ```
 
 **Recommended companion:** the [Playwright MCP server](https://github.com/microsoft/playwright-mcp). With it, Claude renders your actual UI, takes screenshots at multiple viewport widths and verifies its own work. The skill works without it (static, code-level review), but it shines with it.
 
