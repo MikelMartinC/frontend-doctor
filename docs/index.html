@@ -1,755 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>frontend-doctor — your UI has symptoms. Ship it healthy.</title>
-<meta name="description" content="A Claude Code skill that reviews and builds frontend like a senior engineer: design review, WCAG accessibility, responsive layout and Core Web Vitals.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230e6f66'/%3E%3Cpath d='M5 16h6l2.5-6.5 4.5 13 2.5-6.5H27' stroke='%23faf6ef' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<style>
-  /* ============ Design tokens ============ */
-  :root{
-    --paper:#faf6ef;
-    --card:#ffffff;
-    --ink:#152430;
-    --ink-soft:#44586582;
-    --ink-mute:#3d5361;
-    --line:#152430;
-    --line-soft:#15243022;
-    --teal:#0e6f66;
-    --teal-soft:#0e6f6614;
-    --red:#b3401e;
-    --red-soft:#b3401e14;
-    --amber:#8a5a00;
-    --amber-soft:#8a5a0018;
-    --good:#166534;
-    --good-soft:#16653414;
-    --shadow:6px 6px 0 var(--ink);
-    --shadow-sm:3px 3px 0 var(--ink);
-    --grid-line:#15243010;
-    color-scheme: light;
-  }
-  [data-theme="dark"]{
-    --paper:#0d1519;
-    --card:#15222a;
-    --ink:#e9e2d4;
-    --ink-soft:#b7c4cc82;
-    --ink-mute:#aebcc4;
-    --line:#e9e2d4;
-    --line-soft:#e9e2d426;
-    --teal:#4fd8c6;
-    --teal-soft:#4fd8c61a;
-    --red:#ff9c78;
-    --red-soft:#ff9c781a;
-    --amber:#ffcf6e;
-    --amber-soft:#ffcf6e1c;
-    --good:#7fdc9a;
-    --good-soft:#7fdc9a1a;
-    --grid-line:#e9e2d40d;
-    color-scheme: dark;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --paper:#0d1519; --card:#15222a; --ink:#e9e2d4; --ink-soft:#b7c4cc82;
-      --ink-mute:#aebcc4; --line:#e9e2d4; --line-soft:#e9e2d426;
-      --teal:#4fd8c6; --teal-soft:#4fd8c61a; --red:#ff9c78; --red-soft:#ff9c781a;
-      --amber:#ffcf6e; --amber-soft:#ffcf6e1c; --good:#7fdc9a; --good-soft:#7fdc9a1a;
-      --grid-line:#e9e2d40d;
-      color-scheme: dark;
-    }
-  }
-
-  /* ============ Base ============ */
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
-  body{
-    background:var(--paper);
-    color:var(--ink);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    font-size:1rem; line-height:1.6;
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size:32px 32px;
-  }
-  ::selection{background:var(--teal);color:var(--paper)}
-  img,svg{max-width:100%;height:auto}
-  a{color:var(--teal)}
-  :focus-visible{outline:3px solid var(--teal);outline-offset:3px;border-radius:2px}
-
-  .wrap{width:min(1080px,calc(100% - 40px));margin-inline:auto}
-  .mono{font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
-
-  .skip-link{
-    position:absolute;left:-9999px;top:0;z-index:100;
-    background:var(--ink);color:var(--paper);padding:12px 20px;font-weight:700;
-  }
-  .skip-link:focus{left:12px;top:12px}
-
-  /* ============ Type ============ */
-  h1,h2,h3{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;line-height:1.12;letter-spacing:-.015em;text-wrap:balance}
-  h1{font-size:clamp(2.4rem,1.2rem + 5.2vw,4.3rem);font-weight:700}
-  h2{font-size:clamp(1.7rem,1.1rem + 2.6vw,2.6rem)}
-  h3{font-size:1.22rem}
-  .eyebrow{
-    font-family:ui-monospace,Consolas,monospace;
-    font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--teal);display:flex;align-items:center;gap:10px;margin-bottom:14px;
-  }
-  .eyebrow::before{content:"";width:26px;height:2px;background:var(--teal);flex:none}
-  .lede{font-size:1.12rem;color:var(--ink-mute);max-width:58ch}
-
-  /* ============ Header ============ */
-  header{
-    position:sticky;top:0;z-index:50;
-    background:color-mix(in srgb, var(--paper) 86%, transparent);
-    backdrop-filter:blur(10px);
-    border-bottom:2px solid var(--line);
-  }
-  .nav{display:flex;align-items:center;gap:18px;min-height:64px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--ink);text-decoration:none;font-size:1.02rem}
-  .brand .pulse-mark{width:34px;height:34px;flex:none;border:2px solid var(--line);border-radius:50%;background:var(--teal-soft);display:grid;place-items:center}
-  .nav-links{display:flex;gap:4px;margin-left:auto;list-style:none;flex-wrap:wrap}
-  .nav-links a{
-    display:block;padding:10px 12px;color:var(--ink-mute);text-decoration:none;
-    font-size:.9rem;font-weight:600;border-radius:8px;
-  }
-  .nav-links a:hover{background:var(--teal-soft);color:var(--ink)}
-  .theme-btn{
-    margin-left:6px;min-width:44px;min-height:44px;border:2px solid var(--line);border-radius:10px;
-    background:var(--card);color:var(--ink);font-size:1.05rem;cursor:pointer;
-  }
-  .theme-btn:hover{background:var(--teal-soft)}
-  @media (max-width:720px){ .nav-links{display:none} }
-
-  /* ============ Buttons ============ */
-  .btn{
-    display:inline-flex;align-items:center;gap:9px;min-height:48px;padding:11px 22px;
-    border:2px solid var(--line);border-radius:12px;font-weight:700;font-size:.98rem;
-    text-decoration:none;cursor:pointer;color:var(--ink);background:var(--card);
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
-  .btn-primary{background:var(--teal);border-color:var(--teal);color:var(--paper)}
-  [data-theme="dark"] .btn-primary{color:#0d1519}
-  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn-primary{color:#0d1519} }
-  .btn:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow-sm)}
-  .btn:active{transform:translate(0,0);box-shadow:none}
-  @media (prefers-reduced-motion: reduce){ .btn{transition:none} .btn:hover{transform:none} }
-
-  /* ============ Hero ============ */
-  .hero{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,80px)}
-  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(28px,5vw,64px);align-items:center}
-  @media (max-width:880px){ .hero-grid{grid-template-columns:1fr} }
-  .hero h1 em{font-style:italic;color:var(--teal)}
-  .hero-actions{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap}
-  .hero-tags{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;list-style:none}
-  .hero-tags li{
-    font-family:ui-monospace,Consolas,monospace;font-size:.74rem;font-weight:700;
-    padding:6px 12px;border:1.5px solid var(--line-soft);border-radius:999px;color:var(--ink-mute);
-  }
-
-  /* Patient chart card in hero */
-  .chart-card{
-    background:var(--card);border:2px solid var(--line);border-radius:16px;
-    box-shadow:var(--shadow);overflow:hidden;
-  }
-  .chart-head{
-    display:flex;justify-content:space-between;align-items:center;gap:10px;
-    padding:14px 18px;border-bottom:2px solid var(--line);
-    font-family:ui-monospace,Consolas,monospace;font-size:.74rem;font-weight:700;letter-spacing:.08em;
-  }
-  .chart-head .status{color:var(--good)}
-  .ekg-box{padding:10px 6px 0;background:var(--teal-soft)}
-  .ekg-box svg{display:block}
-  .ekg-base{stroke:var(--line-soft);stroke-width:2;fill:none}
-  .ekg-live{
-    stroke:var(--teal);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;
-    stroke-dasharray:820;stroke-dashoffset:820;
-    animation:ekg 3.4s linear infinite;
-  }
-  @keyframes ekg{
-    0%{stroke-dashoffset:820;opacity:1}
-    70%{stroke-dashoffset:0;opacity:1}
-    88%{opacity:.25}
-    100%{stroke-dashoffset:0;opacity:0}
-  }
-  @media (prefers-reduced-motion: reduce){
-    .ekg-live{animation:none;stroke-dashoffset:0}
-  }
-  .chart-vitals{display:grid;grid-template-columns:repeat(3,1fr)}
-  .chart-vitals > div{padding:16px 12px;text-align:center;border-top:2px solid var(--line)}
-  .chart-vitals > div + div{border-left:2px solid var(--line)}
-  .chart-vitals .v-num{
-    font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
-    font-size:clamp(1.25rem,3vw,1.7rem);font-weight:800;color:var(--teal);display:block;
-  }
-  .chart-vitals .v-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
-
-  /* ============ Sections ============ */
-  section{padding:clamp(52px,8vw,96px) 0}
-  .section-head{max-width:640px;margin-bottom:clamp(28px,4vw,48px)}
-
-  /* Symptoms */
-  .symptoms{border-block:2px solid var(--line);background:var(--card)}
-  .symptom-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
-  .symptom{
-    border:2px solid var(--line);border-radius:14px;padding:20px;background:var(--paper);
-    position:relative;
-  }
-  .symptom blockquote{font-family:Georgia,serif;font-style:italic;font-size:1.06rem;line-height:1.45}
-  .symptom p{margin-top:12px;font-size:.9rem;color:var(--ink-mute)}
-  .symptom .sym-tag{
-    position:absolute;top:-13px;left:16px;background:var(--red);color:var(--paper);
-    font-family:ui-monospace,Consolas,monospace;font-size:.68rem;font-weight:800;letter-spacing:.1em;
-    padding:3px 10px;border-radius:999px;border:2px solid var(--line);
-  }
-  [data-theme="dark"] .symptom .sym-tag{color:#0d1519}
-  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .symptom .sym-tag{color:#0d1519} }
-
-  /* ============ Clinic (before/after) ============ */
-  .clinic-grid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:clamp(24px,4vw,48px);align-items:start}
-  @media (max-width:880px){ .clinic-grid{grid-template-columns:1fr} }
-
-  .patient{
-    background:var(--card);border:2px solid var(--line);border-radius:16px;
-    box-shadow:var(--shadow);padding:22px;
-  }
-  .patient-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;
-    font-family:ui-monospace,Consolas,monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em}
-  .patient-head .p-state{padding:4px 10px;border-radius:999px;border:2px solid var(--line)}
-  .patient[data-state="sick"] .p-state{background:var(--red-soft);color:var(--red)}
-  .patient[data-state="healthy"] .p-state{background:var(--good-soft);color:var(--good)}
-
-  /* the fake checkout UI */
-  .fakeui{border:2px solid var(--line-soft);border-radius:12px;padding:18px;background:var(--paper)}
-  .fakeui .f-title{font-weight:800;font-size:1.02rem}
-  .fakeui .f-price{font-variant-numeric:tabular-nums;font-weight:800}
-  .fakeui .f-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-  .fakeui .f-field{margin-top:14px}
-  .fakeui label{display:block;font-size:.8rem;font-weight:700;margin-bottom:5px}
-  .fakeui input{
-    width:100%;padding:10px 12px;border:2px solid var(--line-soft);border-radius:8px;
-    background:var(--card);color:var(--ink);font:inherit;font-size:.92rem;
-  }
-  .fakeui .f-err{display:none;font-size:.8rem;color:var(--red);font-weight:700;margin-top:5px}
-  .fakeui .f-pay{margin-top:16px;width:100%;justify-content:center}
-  /* sick styles */
-  .patient[data-state="sick"] .fakeui label{display:none}
-  .patient[data-state="sick"] .fakeui .f-price{opacity:.32}
-  .patient[data-state="sick"] .fakeui .f-pay{
-    border-color:transparent;background:var(--teal-soft);color:var(--ink-soft);
-    box-shadow:none;transform:none;
-  }
-  .patient[data-state="healthy"] .fakeui .f-err{display:block}
-  .patient[data-state="healthy"] .fakeui input[aria-invalid="true"]{border-color:var(--red)}
-
-  .treat-btn{margin-top:18px;width:100%;justify-content:center}
-
-  .findings{list-style:none;display:grid;gap:12px}
-  .finding{
-    display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;
-    border:2px solid var(--line-soft);border-radius:12px;padding:14px 16px;background:var(--card);
-  }
-  .finding .sev{
-    font-family:ui-monospace,Consolas,monospace;font-size:.66rem;font-weight:800;letter-spacing:.08em;
-    padding:3px 9px;border-radius:999px;margin-top:2px;white-space:nowrap;
-  }
-  .sev-blocker{background:var(--red-soft);color:var(--red);border:1.5px solid var(--red)}
-  .sev-high{background:var(--amber-soft);color:var(--amber);border:1.5px solid var(--amber)}
-  .sev-polish{background:var(--teal-soft);color:var(--teal);border:1.5px solid var(--teal)}
-  .finding b{display:block;font-size:.95rem}
-  .finding span.fix{display:block;font-size:.86rem;color:var(--ink-mute);margin-top:2px}
-  .finding .done{display:none;color:var(--good);font-weight:800;font-size:.8rem;margin-top:4px}
-  .findings.treated .finding{border-color:var(--good);opacity:.92}
-  .findings.treated .finding .done{display:block}
-
-  /* ============ Departments ============ */
-  .departments{background:var(--card);border-block:2px solid var(--line)}
-  .dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
-  .dept{
-    border:2px solid var(--line);border-radius:14px;padding:20px;background:var(--paper);
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
-  .dept:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow-sm)}
-  @media (prefers-reduced-motion: reduce){ .dept{transition:none} .dept:hover{transform:none} }
-  .dept .d-icon{font-size:1.5rem}
-  .dept h3{margin:10px 0 6px}
-  .dept p{font-size:.9rem;color:var(--ink-mute)}
-  .dept .d-ref{
-    display:inline-block;margin-top:12px;font-family:ui-monospace,Consolas,monospace;
-    font-size:.68rem;font-weight:700;color:var(--teal);background:var(--teal-soft);
-    padding:4px 9px;border-radius:6px;overflow-wrap:anywhere;
-  }
-
-  /* ============ Vitals ============ */
-  .vitals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px}
-  .vital{
-    background:var(--card);border:2px solid var(--line);border-radius:16px;padding:22px;
-    box-shadow:var(--shadow-sm);
-  }
-  .vital .v-name{font-family:ui-monospace,Consolas,monospace;font-size:.72rem;font-weight:800;letter-spacing:.12em;color:var(--ink-mute)}
-  .vital .v-reading{
-    display:flex;align-items:baseline;gap:8px;margin-top:8px;
-    font-variant-numeric:tabular-nums;
-  }
-  .vital .v-big{font-family:Georgia,serif;font-size:2.5rem;font-weight:700;line-height:1;color:var(--teal)}
-  .vital .v-unit{font-size:1rem;color:var(--ink-mute);font-weight:700}
-  .vital .v-bar{height:10px;border:2px solid var(--line);border-radius:999px;margin-top:16px;overflow:hidden;background:var(--paper)}
-  .vital .v-bar i{display:block;height:100%;background:var(--teal);width:0%;transition:width 1.1s ease .15s}
-  .vitals-live .v-bar i{width:var(--fill)}
-  @media (prefers-reduced-motion: reduce){
-    .vital .v-bar i{transition:none;width:var(--fill)}
-  }
-  .vital .v-note{margin-top:10px;font-size:.84rem;color:var(--ink-mute)}
-  .vital .v-note b{color:var(--good)}
-
-  /* ============ Rx ============ */
-  .rx-card{
-    max-width:660px;margin-inline:auto;background:var(--card);border:2px solid var(--line);
-    border-radius:16px;box-shadow:var(--shadow);padding:clamp(24px,4vw,44px);position:relative;
-  }
-  .rx-card::before{
-    content:"℞";font-family:Georgia,serif;font-size:3.4rem;line-height:1;color:var(--teal);
-    position:absolute;top:22px;right:28px;opacity:.85;
-  }
-  .rx-card h2{max-width:14ch}
-  .rx-list{list-style:none;margin-top:22px;display:grid;gap:12px}
-  .rx-list li{display:flex;gap:12px;align-items:baseline;border-bottom:1.5px dashed var(--line-soft);padding-bottom:12px}
-  .rx-list li::before{content:"✓";font-weight:900;color:var(--good);flex:none}
-  .rx-sign{
-    margin-top:26px;text-align:right;font-family:"Segoe Script","Brush Script MT",cursive;
-    font-size:1.3rem;color:var(--teal);transform:rotate(-2deg);
-  }
-
-  /* ============ Install ============ */
-  .install{background:var(--card);border-top:2px solid var(--line)}
-  .install-box{
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    background:var(--ink);border-radius:14px;padding:18px 20px;margin-top:26px;
-    border:2px solid var(--line);overflow-x:auto;
-  }
-  .install-box code{
-    font-family:ui-monospace,Consolas,monospace;font-size:.95rem;color:#f2ecdf;
-    white-space:nowrap;
-  }
-  [data-theme="dark"] .install-box{background:#050a0d}
-  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .install-box{background:#050a0d} }
-  .install-box .copy-btn{margin-left:auto;flex:none}
-  .copy-status{font-size:.85rem;font-weight:700;color:var(--good);min-height:1.4em;display:block;margin-top:10px}
-  .companion{margin-top:18px;font-size:.92rem;color:var(--ink-mute);max-width:62ch}
-
-  /* ============ Footer ============ */
-  footer{border-top:2px solid var(--line);padding:34px 0 46px}
-  .foot{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:center}
-  .foot p{font-size:.88rem;color:var(--ink-mute)}
-  .foot nav{display:flex;gap:18px;flex-wrap:wrap}
-  .foot a{font-size:.88rem;font-weight:600}
-
-  /* ============ Reveal on scroll (only when JS is running) ============ */
-  html.js .reveal{opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease}
-  html.js .reveal.in{opacity:1;transform:none}
-  @media (prefers-reduced-motion: reduce){
-    .reveal{opacity:1;transform:none;transition:none}
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>frontend-doctor — your UI has symptoms. Ship it healthy.</title>
+  <meta name="description" content="A Claude Code skill that reviews and builds frontend like a senior engineer: design review, WCAG accessibility, responsive layout and Core Web Vitals.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230e6f66'/%3E%3Cpath d='M5 16h6l2.5-6.5 4.5 13 2.5-6.5H27' stroke='%23faf6ef' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Applies a manually saved theme before first paint to avoid a flash
+       of the wrong color scheme. The toggle itself lives in js/main.js. -->
+  <script>
+    try {
+      var t = localStorage.getItem("fd-theme");
+      if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to main content</a>
+  <a class="skip-link" href="#main">Skip to main content</a>
 
-<header>
-  <div class="wrap nav">
-    <a class="brand" href="#top" aria-label="frontend-doctor, back to top">
-      <span class="pulse-mark" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M2 12h4l2.5-6 4 12 2.5-6H22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
-      frontend-doctor
-    </a>
-    <ul class="nav-links">
-      <li><a href="#symptoms">Symptoms</a></li>
-      <li><a href="#clinic">The clinic</a></li>
-      <li><a href="#departments">Departments</a></li>
-      <li><a href="#rx">Prescription</a></li>
-      <li><a href="#install">Install</a></li>
-    </ul>
-    <button class="theme-btn" id="themeToggle" aria-label="Switch color theme">◐</button>
-  </div>
-</header>
-
-<main id="main">
-
-  <!-- ============ HERO ============ -->
-  <section class="hero" id="top" aria-labelledby="hero-title">
-    <div class="wrap hero-grid">
-      <div>
-        <p class="eyebrow">A skill for Claude Code · Open source</p>
-        <h1 id="hero-title">Your UI has symptoms. Ship it <em>healthy.</em></h1>
-        <p class="lede" style="margin-top:18px">
-          frontend-doctor turns Claude Code into a senior frontend engineer with a strict
-          quality bar: it builds and reviews components, design, accessibility, responsive
-          layout and performance — and every diagnosis comes with the exact cure.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#install">Get the skill</a>
-          <a class="btn" href="https://github.com/MikelMartinC/frontend-doctor">View on GitHub ↗</a>
-        </div>
-        <ul class="hero-tags" aria-label="Key properties">
-          <li>WCAG 2.2 AA</li>
-          <li>Core Web Vitals</li>
-          <li>5 modes</li>
-          <li>MIT license</li>
-        </ul>
-      </div>
-
-      <div class="chart-card" role="img" aria-label="Patient chart: your frontend, status stable. Electrocardiogram with healthy vitals: contrast ratio 7.3 to 1, largest contentful paint 1.8 seconds, cumulative layout shift 0.02.">
-        <div class="chart-head" aria-hidden="true">
-          <span>PATIENT: YOUR-FRONTEND.APP</span>
-          <span class="status">● STABLE</span>
-        </div>
-        <div class="ekg-box" aria-hidden="true">
-          <svg viewBox="0 0 400 110" preserveAspectRatio="none" style="width:100%;height:110px">
-            <path class="ekg-base" d="M0 62 H70 L82 62 88 30 96 88 104 54 112 62 H180 L192 62 198 26 206 92 214 52 222 62 H300 L312 62 318 32 326 86 334 55 342 62 H400"/>
-            <path class="ekg-live" d="M0 62 H70 L82 62 88 30 96 88 104 54 112 62 H180 L192 62 198 26 206 92 214 52 222 62 H300 L312 62 318 32 326 86 334 55 342 62 H400"/>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="frontend-doctor, back to top">
+        <span class="pulse-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M2 12h4l2.5-6 4 12 2.5-6H22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-        </div>
-        <div class="chart-vitals" aria-hidden="true">
-          <div><span class="v-num">7.3:1</span><span class="v-label">Contrast</span></div>
-          <div><span class="v-num">1.8s</span><span class="v-label">LCP</span></div>
-          <div><span class="v-num">0.02</span><span class="v-label">CLS</span></div>
-        </div>
-      </div>
+        </span>
+        frontend-doctor
+      </a>
+      <ul class="nav-links">
+        <li><a href="#symptoms">Symptoms</a></li>
+        <li><a href="#clinic">The clinic</a></li>
+        <li><a href="#departments">Departments</a></li>
+        <li><a href="#rx">Prescription</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+      <button class="theme-btn" id="themeToggle" aria-label="Switch color theme">◐</button>
     </div>
-  </section>
+  </header>
 
-  <!-- ============ SYMPTOMS ============ -->
-  <section class="symptoms" id="symptoms" aria-labelledby="symptoms-title">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Patient intake</p>
-        <h2 id="symptoms-title">Heard in every codebase</h2>
-        <p class="lede" style="margin-top:12px">AI writes frontend fast. But fast and healthy are different things — these are the classic symptoms of happy-path UI.</p>
-      </div>
-      <div class="symptom-grid">
-        <article class="symptom reveal">
-          <span class="sym-tag">SYMPTOM 01</span>
-          <blockquote>“It works on my screen.”</blockquote>
-          <p>Reviewed at exactly one viewport width. Breaks at 375px, and at 837px, and at 200% zoom.</p>
-        </article>
-        <article class="symptom reveal">
-          <span class="sym-tag">SYMPTOM 02</span>
-          <blockquote>“We'll add the error state later.”</blockquote>
-          <p>The demo only ever saw the happy path. First failed request in production renders a blank region.</p>
-        </article>
-        <article class="symptom reveal">
-          <span class="sym-tag">SYMPTOM 03</span>
-          <blockquote>“The outline looked ugly, so I removed it.”</blockquote>
-          <p><code class="mono">outline: none</code> — and now keyboard users are navigating blindfolded.</p>
-        </article>
-        <article class="symptom reveal">
-          <span class="sym-tag">SYMPTOM 04</span>
-          <blockquote>“Lighthouse says 61, but it feels fine.”</blockquote>
-          <p>A 4-second LCP on the connection your users actually have. Feelings are not measurements.</p>
-        </article>
-      </div>
-    </div>
-  </section>
+  <main id="main">
 
-  <!-- ============ CLINIC ============ -->
-  <section id="clinic" aria-labelledby="clinic-title">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">The clinic · Interactive</p>
-        <h2 id="clinic-title">One sick checkout, five findings</h2>
-        <p class="lede" style="margin-top:12px">
-          This is how the skill reports: every finding has a severity and the exact fix.
-          Press the button to apply the treatment and watch the patient recover.
+    <!-- Hero: value proposition + patient chart with EKG and healthy vitals -->
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">A skill for Claude Code · Open source</p>
+          <h1 id="hero-title">Your UI has symptoms. Ship it <em>healthy.</em></h1>
+          <p class="lede" style="margin-top:18px">
+            frontend-doctor turns Claude Code into a senior frontend engineer with a strict
+            quality bar: it builds and reviews components, design, accessibility, responsive
+            layout and performance — and every diagnosis comes with the exact cure.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#install">Get the skill</a>
+            <a class="btn" href="https://github.com/MikelMartinC/frontend-doctor">View on GitHub ↗</a>
+          </div>
+          <ul class="hero-tags" aria-label="Key properties">
+            <li>WCAG 2.2 AA</li>
+            <li>Core Web Vitals</li>
+            <li>5 modes</li>
+            <li>MIT license</li>
+          </ul>
+        </div>
+
+        <div class="chart-card" role="img" aria-label="Patient chart: your frontend, status stable. Electrocardiogram with healthy vitals: contrast ratio 7.3 to 1, largest contentful paint 1.8 seconds, cumulative layout shift 0.02.">
+          <div class="chart-head" aria-hidden="true">
+            <span>PATIENT: YOUR-FRONTEND.APP</span>
+            <span class="status">● STABLE</span>
+          </div>
+          <div class="ekg-box" aria-hidden="true">
+            <svg viewBox="0 0 400 110" preserveAspectRatio="none" style="width:100%;height:110px">
+              <path class="ekg-base" d="M0 62 H70 L82 62 88 30 96 88 104 54 112 62 H180 L192 62 198 26 206 92 214 52 222 62 H300 L312 62 318 32 326 86 334 55 342 62 H400"/>
+              <path class="ekg-live" d="M0 62 H70 L82 62 88 30 96 88 104 54 112 62 H180 L192 62 198 26 206 92 214 52 222 62 H300 L312 62 318 32 326 86 334 55 342 62 H400"/>
+            </svg>
+          </div>
+          <div class="chart-vitals" aria-hidden="true">
+            <div><span class="v-num">7.3:1</span><span class="v-label">Contrast</span></div>
+            <div><span class="v-num">1.8s</span><span class="v-label">LCP</span></div>
+            <div><span class="v-num">0.02</span><span class="v-label">CLS</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Symptoms: the classic failure modes of happy-path UI -->
+    <section class="symptoms" id="symptoms" aria-labelledby="symptoms-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">Patient intake</p>
+          <h2 id="symptoms-title">Heard in every codebase</h2>
+          <p class="lede" style="margin-top:12px">AI writes frontend fast. But fast and healthy are different things — these are the classic symptoms of happy-path UI.</p>
+        </div>
+        <div class="symptom-grid">
+          <article class="symptom reveal">
+            <span class="sym-tag">SYMPTOM 01</span>
+            <blockquote>“It works on my screen.”</blockquote>
+            <p>Reviewed at exactly one viewport width. Breaks at 375px, and at 837px, and at 200% zoom.</p>
+          </article>
+          <article class="symptom reveal">
+            <span class="sym-tag">SYMPTOM 02</span>
+            <blockquote>“We'll add the error state later.”</blockquote>
+            <p>The demo only ever saw the happy path. First failed request in production renders a blank region.</p>
+          </article>
+          <article class="symptom reveal">
+            <span class="sym-tag">SYMPTOM 03</span>
+            <blockquote>“The outline looked ugly, so I removed it.”</blockquote>
+            <p><code class="mono">outline: none</code> — and now keyboard users are navigating blindfolded.</p>
+          </article>
+          <article class="symptom reveal">
+            <span class="sym-tag">SYMPTOM 04</span>
+            <blockquote>“Lighthouse says 61, but it feels fine.”</blockquote>
+            <p>A 4-second LCP on the connection your users actually have. Feelings are not measurements.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Clinic: interactive before/after demo of a review report -->
+    <section id="clinic" aria-labelledby="clinic-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">The clinic · Interactive</p>
+          <h2 id="clinic-title">One sick checkout, five findings</h2>
+          <p class="lede" style="margin-top:12px">
+            This is how the skill reports: every finding has a severity and the exact fix.
+            Press the button to apply the treatment and watch the patient recover.
+          </p>
+        </div>
+
+        <div class="clinic-grid">
+          <div class="patient reveal" id="patient" data-state="sick">
+            <div class="patient-head">
+              <span>CASE #0042 · CHECKOUT</span>
+              <span class="p-state" id="patientState">● SICK</span>
+            </div>
+            <div class="fakeui" aria-hidden="true">
+              <div class="f-row">
+                <span class="f-title">Pro plan — annual</span>
+                <span class="f-price">€144.00</span>
+              </div>
+              <div class="f-field">
+                <label for="demo-card">Card number</label>
+                <input id="demo-card" type="text" inputmode="numeric" placeholder="Card number" value="4242 4242" aria-invalid="true" tabindex="-1">
+                <p class="f-err">⚠ Card number is incomplete — 16 digits required.</p>
+              </div>
+              <button class="btn btn-primary f-pay" tabindex="-1" type="button">Pay now</button>
+            </div>
+            <button class="btn btn-primary treat-btn" id="treatBtn" aria-pressed="false" aria-describedby="patientState">
+              Apply treatment 💊
+            </button>
+          </div>
+
+          <ul class="findings reveal" id="findings" aria-label="Review findings">
+            <li class="finding">
+              <span class="sev sev-blocker">BLOCKER</span>
+              <div>
+                <b>Placeholder used as the only label</b>
+                <span class="fix">Vanishes on first keystroke; invisible to screen readers. Fix: real <code class="mono">&lt;label for&gt;</code> above the field.</span>
+                <span class="done">✓ Treated — label restored</span>
+              </div>
+            </li>
+            <li class="finding">
+              <span class="sev sev-blocker">BLOCKER</span>
+              <div>
+                <b>Price contrast 2.6:1 — fails WCAG 1.4.3</b>
+                <span class="fix">The most important number on the page is the hardest to read. Fix: full-ink text, 7.3:1.</span>
+                <span class="done">✓ Treated — contrast passing</span>
+              </div>
+            </li>
+            <li class="finding">
+              <span class="sev sev-high">HIGH</span>
+              <div>
+                <b>Pay button unreachable by keyboard</b>
+                <span class="fix">A styled <code class="mono">&lt;div onClick&gt;</code>: no focus, no Enter, no Space. Fix: a real <code class="mono">&lt;button&gt;</code> with a visible focus ring.</span>
+                <span class="done">✓ Treated — native button</span>
+              </div>
+            </li>
+            <li class="finding">
+              <span class="sev sev-high">HIGH</span>
+              <div>
+                <b>Validation fails silently</b>
+                <span class="fix">Invalid card, no message, nothing announced. Fix: inline error tied with <code class="mono">aria-describedby</code> + <code class="mono">aria-invalid</code>.</span>
+                <span class="done">✓ Treated — error announced</span>
+              </div>
+            </li>
+            <li class="finding">
+              <span class="sev sev-polish">POLISH</span>
+              <div>
+                <b>Spacing off the scale (13px, 17px, 22px)</b>
+                <span class="fix">Three arbitrary values in one card. Fix: snap to the 4px scale — 12 / 16 / 24.</span>
+                <span class="done">✓ Treated — on the grid</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Departments: the five modes of the skill -->
+    <section class="departments" id="departments" aria-labelledby="dept-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">Five departments</p>
+          <h2 id="dept-title">One skill, five specialists</h2>
+          <p class="lede" style="margin-top:12px">Claude detects which department your request belongs to and loads only that reference — progressive disclosure keeps your context lean.</p>
+        </div>
+        <div class="dept-grid">
+          <article class="dept reveal">
+            <span class="d-icon" aria-hidden="true">🧱</span>
+            <h3>Build</h3>
+            <p>All five data states and every interaction state, enumerated before a line of code. Semantic HTML before ARIA.</p>
+            <span class="d-ref">references/component-patterns.md</span>
+          </article>
+          <article class="dept reveal">
+            <span class="d-icon" aria-hidden="true">👁️</span>
+            <h3>Design review</h3>
+            <p>Screenshots at 375 / 768 / 1440px, judged against hierarchy, spacing, type and color. Blocker → High → Polish.</p>
+            <span class="d-ref">references/design-review.md</span>
+          </article>
+          <article class="dept reveal">
+            <span class="d-icon" aria-hidden="true">♿</span>
+            <h3>Accessibility</h3>
+            <p>WCAG 2.2 AA audit that starts where sites actually fail: the keyboard path. Every finding cites its criterion.</p>
+            <span class="d-ref">references/accessibility.md</span>
+          </article>
+          <article class="dept reveal">
+            <span class="d-icon" aria-hidden="true">📱</span>
+            <h3>Responsive</h3>
+            <p>Root causes, not symptom patches: fluid-first fixes with clamp(), container queries and auto-fit grids.</p>
+            <span class="d-ref">references/responsive.md</span>
+          </article>
+          <article class="dept reveal">
+            <span class="d-icon" aria-hidden="true">⚡</span>
+            <h3>Performance</h3>
+            <p>Core Web Vitals triage — LCP, INP, CLS — with one hard rule: measure before and after, always.</p>
+            <span class="d-ref">references/performance.md</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vitals: the Core Web Vitals thresholds the skill treats as healthy -->
+    <section id="vitals" aria-labelledby="vitals-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">Vitals monitor</p>
+          <h2 id="vitals-title">Numbers, not vibes</h2>
+          <p class="lede" style="margin-top:12px">The performance department never claims an improvement without a before and an after. These are the thresholds it treats as healthy.</p>
+        </div>
+        <div class="vitals-grid" id="vitalsGrid">
+          <article class="vital reveal">
+            <span class="v-name">LCP · LOADING</span>
+            <div class="v-reading"><span class="v-big" data-count="2.5" data-decimals="1">0.0</span><span class="v-unit">s max</span></div>
+            <div class="v-bar" role="presentation"><i style="--fill:78%"></i></div>
+            <p class="v-note">Largest Contentful Paint — <b>good</b> under 2.5s on real connections.</p>
+          </article>
+          <article class="vital reveal">
+            <span class="v-name">INP · RESPONSIVENESS</span>
+            <div class="v-reading"><span class="v-big" data-count="200" data-decimals="0">0</span><span class="v-unit">ms max</span></div>
+            <div class="v-bar" role="presentation"><i style="--fill:64%"></i></div>
+            <p class="v-note">Interaction to Next Paint — <b>good</b> under 200ms, every tap and keypress.</p>
+          </article>
+          <article class="vital reveal">
+            <span class="v-name">CLS · STABILITY</span>
+            <div class="v-reading"><span class="v-big" data-count="0.1" data-decimals="1">0.0</span><span class="v-unit">max shift</span></div>
+            <div class="v-bar" role="presentation"><i style="--fill:88%"></i></div>
+            <p class="v-note">Cumulative Layout Shift — <b>good</b> under 0.1. Nothing jumps, ever.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Prescription: the non-negotiables enforced in every mode -->
+    <section id="rx" aria-labelledby="rx-title">
+      <div class="wrap">
+        <div class="rx-card reveal">
+          <p class="eyebrow">Standing prescription</p>
+          <h2 id="rx-title">The non&#8209;negotiables</h2>
+          <ul class="rx-list">
+            <li>Every interactive element keyboard-reachable, with a visible focus ring.</li>
+            <li>Text contrast ≥ 4.5:1 — measured, not eyeballed.</li>
+            <li>Meaningful <code class="mono">alt</code> text; every input has a real label.</li>
+            <li>Touch targets ≥ 44×44px on mobile.</li>
+            <li>No layout that only works at one viewport width.</li>
+            <li><code class="mono">prefers-reduced-motion</code> respected — like this very page.</li>
+            <li>Focus outlines never removed without an equal-or-better replacement.</li>
+          </ul>
+          <p class="rx-sign" aria-label="Signed: the Frontend Doctor">— the Frontend Doctor</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section class="install" id="install" aria-labelledby="install-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">Book an appointment</p>
+          <h2 id="install-title">Install in one line</h2>
+        </div>
+        <div class="install-box reveal">
+          <code id="installCmd">npx skills add MikelMartinC/frontend-doctor</code>
+          <button class="btn copy-btn" id="copyBtn" type="button">Copy</button>
+        </div>
+        <span class="copy-status" id="copyStatus" role="status" aria-live="polite"></span>
+        <p class="companion">
+          Works out of the box — Claude Code activates it whenever you ask for frontend work,
+          or invoke it directly with <code class="mono">/frontend-doctor</code>. For the full experience, pair it with the
+          <a href="https://github.com/microsoft/playwright-mcp">Playwright MCP server</a> so Claude
+          can render your UI, screenshot it at three widths and verify its own treatment.
         </p>
       </div>
+    </section>
+  </main>
 
-      <div class="clinic-grid">
-        <div class="patient reveal" id="patient" data-state="sick">
-          <div class="patient-head">
-            <span>CASE #0042 · CHECKOUT</span>
-            <span class="p-state" id="patientState">● SICK</span>
-          </div>
-          <div class="fakeui" aria-hidden="true">
-            <div class="f-row">
-              <span class="f-title">Pro plan — annual</span>
-              <span class="f-price">€144.00</span>
-            </div>
-            <div class="f-field">
-              <label for="demo-card">Card number</label>
-              <input id="demo-card" type="text" inputmode="numeric" placeholder="Card number" value="4242 4242" aria-invalid="true" tabindex="-1">
-              <p class="f-err">⚠ Card number is incomplete — 16 digits required.</p>
-            </div>
-            <button class="btn btn-primary f-pay" tabindex="-1" type="button">Pay now</button>
-          </div>
-          <button class="btn btn-primary treat-btn" id="treatBtn" aria-pressed="false" aria-describedby="patientState">
-            Apply treatment 💊
-          </button>
-        </div>
-
-        <ul class="findings reveal" id="findings" aria-label="Review findings">
-          <li class="finding">
-            <span class="sev sev-blocker">BLOCKER</span>
-            <div>
-              <b>Placeholder used as the only label</b>
-              <span class="fix">Vanishes on first keystroke; invisible to screen readers. Fix: real <code class="mono">&lt;label for&gt;</code> above the field.</span>
-              <span class="done">✓ Treated — label restored</span>
-            </div>
-          </li>
-          <li class="finding">
-            <span class="sev sev-blocker">BLOCKER</span>
-            <div>
-              <b>Price contrast 2.6:1 — fails WCAG 1.4.3</b>
-              <span class="fix">The most important number on the page is the hardest to read. Fix: full-ink text, 7.3:1.</span>
-              <span class="done">✓ Treated — contrast passing</span>
-            </div>
-          </li>
-          <li class="finding">
-            <span class="sev sev-high">HIGH</span>
-            <div>
-              <b>Pay button unreachable by keyboard</b>
-              <span class="fix">A styled <code class="mono">&lt;div onClick&gt;</code>: no focus, no Enter, no Space. Fix: a real <code class="mono">&lt;button&gt;</code> with a visible focus ring.</span>
-              <span class="done">✓ Treated — native button</span>
-            </div>
-          </li>
-          <li class="finding">
-            <span class="sev sev-high">HIGH</span>
-            <div>
-              <b>Validation fails silently</b>
-              <span class="fix">Invalid card, no message, nothing announced. Fix: inline error tied with <code class="mono">aria-describedby</code> + <code class="mono">aria-invalid</code>.</span>
-              <span class="done">✓ Treated — error announced</span>
-            </div>
-          </li>
-          <li class="finding">
-            <span class="sev sev-polish">POLISH</span>
-            <div>
-              <b>Spacing off the scale (13px, 17px, 22px)</b>
-              <span class="fix">Three arbitrary values in one card. Fix: snap to the 4px scale — 12 / 16 / 24.</span>
-              <span class="done">✓ Treated — on the grid</span>
-            </div>
-          </li>
-        </ul>
-      </div>
+  <footer>
+    <div class="wrap foot">
+      <p>frontend-doctor · MIT license · Built with its own prescription.</p>
+      <nav aria-label="Footer">
+        <a href="https://github.com/MikelMartinC/frontend-doctor">GitHub</a>
+        <a href="https://github.com/MikelMartinC/frontend-doctor/blob/main/CONTRIBUTING.md">Contribute</a>
+        <a href="https://github.com/MikelMartinC/frontend-doctor/issues">Issues</a>
+      </nav>
     </div>
-  </section>
+  </footer>
 
-  <!-- ============ DEPARTMENTS ============ -->
-  <section class="departments" id="departments" aria-labelledby="dept-title">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Five departments</p>
-        <h2 id="dept-title">One skill, five specialists</h2>
-        <p class="lede" style="margin-top:12px">Claude detects which department your request belongs to and loads only that reference — progressive disclosure keeps your context lean.</p>
-      </div>
-      <div class="dept-grid">
-        <article class="dept reveal">
-          <span class="d-icon" aria-hidden="true">🧱</span>
-          <h3>Build</h3>
-          <p>All five data states and every interaction state, enumerated before a line of code. Semantic HTML before ARIA.</p>
-          <span class="d-ref">references/component-patterns.md</span>
-        </article>
-        <article class="dept reveal">
-          <span class="d-icon" aria-hidden="true">👁️</span>
-          <h3>Design review</h3>
-          <p>Screenshots at 375 / 768 / 1440px, judged against hierarchy, spacing, type and color. Blocker → High → Polish.</p>
-          <span class="d-ref">references/design-review.md</span>
-        </article>
-        <article class="dept reveal">
-          <span class="d-icon" aria-hidden="true">♿</span>
-          <h3>Accessibility</h3>
-          <p>WCAG 2.2 AA audit that starts where sites actually fail: the keyboard path. Every finding cites its criterion.</p>
-          <span class="d-ref">references/accessibility.md</span>
-        </article>
-        <article class="dept reveal">
-          <span class="d-icon" aria-hidden="true">📱</span>
-          <h3>Responsive</h3>
-          <p>Root causes, not symptom patches: fluid-first fixes with clamp(), container queries and auto-fit grids.</p>
-          <span class="d-ref">references/responsive.md</span>
-        </article>
-        <article class="dept reveal">
-          <span class="d-icon" aria-hidden="true">⚡</span>
-          <h3>Performance</h3>
-          <p>Core Web Vitals triage — LCP, INP, CLS — with one hard rule: measure before and after, always.</p>
-          <span class="d-ref">references/performance.md</span>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ VITALS ============ -->
-  <section id="vitals" aria-labelledby="vitals-title">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Vitals monitor</p>
-        <h2 id="vitals-title">Numbers, not vibes</h2>
-        <p class="lede" style="margin-top:12px">The performance department never claims an improvement without a before and an after. These are the thresholds it treats as healthy.</p>
-      </div>
-      <div class="vitals-grid" id="vitalsGrid">
-        <article class="vital reveal">
-          <span class="v-name">LCP · LOADING</span>
-          <div class="v-reading"><span class="v-big" data-count="2.5" data-decimals="1">0.0</span><span class="v-unit">s max</span></div>
-          <div class="v-bar" role="presentation"><i style="--fill:78%"></i></div>
-          <p class="v-note">Largest Contentful Paint — <b>good</b> under 2.5s on real connections.</p>
-        </article>
-        <article class="vital reveal">
-          <span class="v-name">INP · RESPONSIVENESS</span>
-          <div class="v-reading"><span class="v-big" data-count="200" data-decimals="0">0</span><span class="v-unit">ms max</span></div>
-          <div class="v-bar" role="presentation"><i style="--fill:64%"></i></div>
-          <p class="v-note">Interaction to Next Paint — <b>good</b> under 200ms, every tap and keypress.</p>
-        </article>
-        <article class="vital reveal">
-          <span class="v-name">CLS · STABILITY</span>
-          <div class="v-reading"><span class="v-big" data-count="0.1" data-decimals="1">0.0</span><span class="v-unit">max shift</span></div>
-          <div class="v-bar" role="presentation"><i style="--fill:88%"></i></div>
-          <p class="v-note">Cumulative Layout Shift — <b>good</b> under 0.1. Nothing jumps, ever.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ RX ============ -->
-  <section id="rx" aria-labelledby="rx-title">
-    <div class="wrap">
-      <div class="rx-card reveal">
-        <p class="eyebrow">Standing prescription</p>
-        <h2 id="rx-title">The non&#8209;negotiables</h2>
-        <ul class="rx-list">
-          <li>Every interactive element keyboard-reachable, with a visible focus ring.</li>
-          <li>Text contrast ≥ 4.5:1 — measured, not eyeballed.</li>
-          <li>Meaningful <code class="mono">alt</code> text; every input has a real label.</li>
-          <li>Touch targets ≥ 44×44px on mobile.</li>
-          <li>No layout that only works at one viewport width.</li>
-          <li><code class="mono">prefers-reduced-motion</code> respected — like this very page.</li>
-          <li>Focus outlines never removed without an equal-or-better replacement.</li>
-        </ul>
-        <p class="rx-sign" aria-label="Signed: the Frontend Doctor">— the Frontend Doctor</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ INSTALL ============ -->
-  <section class="install" id="install" aria-labelledby="install-title">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Book an appointment</p>
-        <h2 id="install-title">Install in one line</h2>
-      </div>
-      <div class="install-box reveal">
-        <code id="installCmd">npx skills add MikelMartinC/frontend-doctor</code>
-        <button class="btn copy-btn" id="copyBtn" type="button">Copy</button>
-      </div>
-      <span class="copy-status" id="copyStatus" role="status" aria-live="polite"></span>
-      <p class="companion">
-        Works out of the box — Claude Code activates it whenever you ask for frontend work,
-        or invoke it directly with <code class="mono">/frontend-doctor</code>. For the full experience, pair it with the
-        <a href="https://github.com/microsoft/playwright-mcp">Playwright MCP server</a> so Claude
-        can render your UI, screenshot it at three widths and verify its own treatment.
-      </p>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="wrap foot">
-    <p>frontend-doctor · MIT license · Built with its own prescription.</p>
-    <nav aria-label="Footer">
-      <a href="https://github.com/MikelMartinC/frontend-doctor">GitHub</a>
-      <a href="https://github.com/MikelMartinC/frontend-doctor/blob/main/CONTRIBUTING.md">Contribute</a>
-      <a href="https://github.com/MikelMartinC/frontend-doctor/issues">Issues</a>
-    </nav>
-  </div>
-</footer>
-
-<script>
-(function(){
-  "use strict";
-  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if ("IntersectionObserver" in window && !reduced) document.documentElement.classList.add("js");
-
-  /* Theme toggle: auto by default, manual override persisted */
-  var root = document.documentElement;
-  try {
-    var saved = localStorage.getItem("fd-theme");
-    if (saved === "dark" || saved === "light") root.dataset.theme = saved;
-  } catch(e){}
-  document.getElementById("themeToggle").addEventListener("click", function(){
-    var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    var current = root.dataset.theme || (systemDark ? "dark" : "light");
-    var next = current === "dark" ? "light" : "dark";
-    root.dataset.theme = next;
-    try { localStorage.setItem("fd-theme", next); } catch(e){}
-  });
-
-  /* Treatment toggle */
-  var patient = document.getElementById("patient");
-  var treatBtn = document.getElementById("treatBtn");
-  var stateEl = document.getElementById("patientState");
-  var findings = document.getElementById("findings");
-  treatBtn.addEventListener("click", function(){
-    var sick = patient.dataset.state === "sick";
-    patient.dataset.state = sick ? "healthy" : "sick";
-    stateEl.textContent = sick ? "● HEALTHY" : "● SICK";
-    treatBtn.setAttribute("aria-pressed", String(sick));
-    treatBtn.textContent = sick ? "Revert treatment ↩" : "Apply treatment 💊";
-    findings.classList.toggle("treated", sick);
-  });
-
-  /* Copy install command */
-  var copyBtn = document.getElementById("copyBtn");
-  var copyStatus = document.getElementById("copyStatus");
-  copyBtn.addEventListener("click", function(){
-    var cmd = document.getElementById("installCmd").textContent;
-    function ok(){ copyStatus.textContent = "✓ Copied to clipboard"; setTimeout(function(){ copyStatus.textContent=""; }, 2600); }
-    function ko(){ copyStatus.textContent = "Select the command and copy it manually."; }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(cmd).then(ok, ko);
-    } else { ko(); }
-  });
-
-  /* Reveal on scroll + counters */
-  var counted = false;
-  function runCounters(){
-    if (counted) return; counted = true;
-    document.querySelectorAll("[data-count]").forEach(function(el){
-      var target = parseFloat(el.dataset.count);
-      var dec = parseInt(el.dataset.decimals, 10) || 0;
-      if (reduced) { el.textContent = target.toFixed(dec); return; }
-      var t0 = null, dur = 900;
-      function step(t){
-        if (!t0) t0 = t;
-        var p = Math.min((t - t0) / dur, 1);
-        p = 1 - Math.pow(1 - p, 3);
-        el.textContent = (target * p).toFixed(dec);
-        if (p < 1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
-    });
-  }
-  var vitals = document.getElementById("vitalsGrid");
-  if ("IntersectionObserver" in window) {
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){
-        if (!en.isIntersecting) return;
-        en.target.classList.add("in");
-        if (en.target === vitals || vitals.contains(en.target)) {
-          vitals.classList.add("vitals-live");
-          runCounters();
-        }
-        io.unobserve(en.target);
-      });
-    }, { threshold: 0.18 });
-    document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
-    io.observe(vitals);
-  } else {
-    document.querySelectorAll(".reveal").forEach(function(el){ el.classList.add("in"); });
-    vitals.classList.add("vitals-live");
-    runCounters();
-  }
-})();
-</script>
+  <script src="js/main.js" defer></script>
 </body>
 </html>
